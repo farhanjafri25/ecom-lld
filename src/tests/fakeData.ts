@@ -1,4 +1,4 @@
-import { BrandTier, CartItem, CustomerProfile, Discount, PaymentInfo, Product } from '../types';
+import { BrandTier, CartItem, CustomerProfile, Discount, PaymentInfo, Product } from '../models/types';
 
 // Sample Products
 export const products: Product[] = [

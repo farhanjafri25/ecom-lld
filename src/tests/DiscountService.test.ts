@@ -1,5 +1,6 @@
-import { DiscountService } from '../DiscountService';
-import { cartItems, customer, discounts, paymentInfo } from '../../data/fakeData';
+import { DiscountService } from '../services/DiscountService';
+import { cartItems, customer, discounts, paymentInfo } from './fakeData';
+import { describe, beforeEach } from '@jest/globals';
 
 describe('DiscountService', () => {
   let discountService: DiscountService;
