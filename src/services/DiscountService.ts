@@ -7,6 +7,9 @@ import { Decimal } from 'decimal.js';
 
 Decimal.set({ precision: 10, rounding: Decimal.ROUND_HALF_UP });
 
+/**
+ * Configuration interface for discount strategies
+ */
 interface StrategyConfig {
   type: 'brand' | 'category' | 'voucher' | 'bank';
   config: any;
@@ -14,17 +17,37 @@ interface StrategyConfig {
   onDiscountApplied?: (discount: Decimal, name: string) => void;
 }
 
+/**
+ * Callback type for when a discount is applied
+ */
 type DiscountAppliedCallback = (discountName: string, amount: Decimal, cartItems: CartItem[]) => void;
 
+/**
+ * Main service class for handling discount calculations and validations.
+ * Implements a strategy pattern to handle different types of discounts.
+ */
 export class DiscountService {
   private readonly strategies: DiscountStrategy[] = [];
   private readonly onDiscountApplied?: DiscountAppliedCallback;
 
+  /**
+   * Creates a new instance of DiscountService
+   * @param initialStrategies - Array of strategy configurations to initialize the service with
+   * @param onDiscountApplied - Optional callback function that is called when a discount is applied
+   */
   constructor(initialStrategies: StrategyConfig[] = [], onDiscountApplied?: DiscountAppliedCallback) {
     this.onDiscountApplied = onDiscountApplied;
     this.loadStrategies(initialStrategies);
   }
 
+  /**
+   * Calculates all applicable discounts for a cart of items
+   * @param cartItems - Array of items in the cart
+   * @param customer - Customer profile information
+   * @param paymentInfo - Optional payment information
+   * @returns Promise resolving to a DiscountedPrice object containing original price, final price, and applied discounts
+   * @throws Error if cartItems is invalid or customer profile is missing
+   */
   async calculateCartDiscounts(
     cartItems: CartItem[],
     customer: CustomerProfile,
@@ -105,6 +128,13 @@ export class DiscountService {
     };
   }
 
+  /**
+   * Validates if a voucher code is applicable to the current cart
+   * @param code - The voucher code to validate
+   * @param cartItems - Array of items in the cart
+   * @param customer - Customer profile information
+   * @returns Promise resolving to a boolean indicating if the voucher is valid
+   */
   async validateDiscountCode(
     code: string,
     cartItems: CartItem[],
@@ -131,6 +161,11 @@ export class DiscountService {
     }
   }
 
+  /**
+   * Adds a new discount strategy to the service
+   * @param strategy - The discount strategy to add
+   * @throws Error if strategy is invalid
+   */
   addDiscountStrategy(strategy: DiscountStrategy): void {
     if (!strategy) {
       throw new Error('Invalid discount strategy');
@@ -138,6 +173,11 @@ export class DiscountService {
     this.strategies.push(strategy);
   }
 
+  /**
+   * Loads and initializes discount strategies from configuration
+   * @param configs - Array of strategy configurations
+   * @private
+   */
   private loadStrategies(configs: StrategyConfig[]): void {
     for (const config of configs) {
       let strategy: DiscountStrategy;
@@ -162,6 +202,12 @@ export class DiscountService {
     }
   }
 
+  /**
+   * Calculates the original price of all items in the cart
+   * @param cartItems - Array of items in the cart
+   * @returns Decimal representing the total original price
+   * @private
+   */
   private calculateOriginalPrice(cartItems: CartItem[]): Decimal {
     const total = cartItems.reduce((acc, item) => {
       return acc.plus(new Decimal(item.product.currentPrice).times(item.quantity));
