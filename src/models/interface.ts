@@ -57,7 +57,83 @@ export interface Discount {
 } 
 
 export interface DiscountStrategy {
-  calculateDiscount(items: CartItem[]): Promise<Decimal>;
+  calculateDiscount(items: CartItem[], customer: CustomerProfile): Promise<Decimal>;
   getDiscountName(): string;
   validate(items: CartItem[], customer: CustomerProfile): Promise<boolean>;
+}
+
+export interface PaymentValidator {
+  validate(paymentInfo: PaymentInfo, config: BankCardDiscountConfig): boolean;
+}
+
+// Configuration interface for flexibility
+export interface BankCardDiscountConfig {
+  bankName: string;
+  discountPercentage: number;
+  minimumCartAmount?: Decimal;
+  eligibleCategories?: string[]; 
+}
+
+// Configuration interface for brand discount
+export interface BrandDiscountConfig {
+  brand: string;
+  discountPercentage: number;
+  minimumCartAmount?: Decimal; 
+  eligibleCategories?: string[]; 
+  customerTiers?: string[];
+  validUntil?: Date; 
+}
+
+
+export interface BrandValidator {
+  validate(
+    items: CartItem[],
+    customer: CustomerProfile,
+    config: BrandDiscountConfig
+  ): boolean;
+}
+
+
+export interface CategoryDiscountConfig {
+  category: string;
+  discountPercentage: number;
+  minimumCartAmount?: Decimal; 
+  excludedBrands?: string[]; 
+  customerTiers?: string[];
+  validUntil?: Date; 
+}
+
+/**
+ * Validator interface for modular validation logic
+ */
+export interface CategoryValidator {
+  validate(
+    items: CartItem[],
+    customer: CustomerProfile,
+    config: CategoryDiscountConfig
+  ): boolean;
+}
+
+// Configuration interface for voucher discount
+export interface VoucherDiscountConfig {
+  code: string;
+  discountPercentage: number;
+  minimumCartAmount?: Decimal; 
+  excludedBrands?: string[];
+  excludedCategories?: string[]; 
+  customerTiers?: string[]; 
+  validUntil?: Date; 
+  maxDiscountCap?: Decimal; 
+}
+
+/**
+ * Validator interface for modular voucher validation
+ */
+export interface VoucherValidator {
+  validate(
+    code: string,
+    items: CartItem[],
+    customer: CustomerProfile,
+    config: VoucherDiscountConfig
+  ): Promise<boolean>;
 }

@@ -35,7 +35,7 @@ export class DiscountService {
 
       for (const strategy of strategiesToProcess) {
         if (await strategy.validate(cartItems, customer)) {
-          const discount = await strategy.calculateDiscount(cartItems);
+          const discount = await strategy.calculateDiscount(cartItems, customer);
           if (discount.greaterThan(0)) {
             finalPrice = finalPrice.minus(discount);
             appliedDiscounts.set(strategy.getDiscountName(), discount.toNumber());
