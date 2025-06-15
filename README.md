@@ -106,17 +106,77 @@ interface DiscountedPrice {
 }
 ```
 
-## Setup and Running
+## Setup Instructions
+1. **Clone the Repository**:
+   ```bash
+   git clone <repository-url>
+   cd unifize-assignment
+   ```
+2. **Install Dependencies**:
+   Ensure Node.js and npm are installed (`node --version`, `npm --version`).
+   ```bash
+   npm install
+   ```
+   Key dependencies:
+   ```json
+   "dependencies": {
+     "decimal.js": "^10.0.0"
+   },
+   "devDependencies": {
+     "typescript": "^5.0.0",
+     "jest": "^29.0.0",
+     "@types/jest": "^29.0.0",
+     "ts-jest": "^3.0.0"
+   }
+   ```
+3. **Compile TypeScript**:
+   ```bash
+   npx tsc --noEmit
+   ```
+4. **Run Tests**:
+   ```bash
+   npm test
+   ```
+   Expected output:
+   ```
+   PASS  src/tests/DiscountService.test.ts
+   DiscountService
+     calculateCartDiscounts
+       ✓ should apply all applicable discounts correctly
+     validateDiscountCode
+       ✓ should validate valid discount code
+       ✓ should reject invalid discount code
+   ```
 
-1. Install dependencies:
-```bash
-npm install
-```
 
-2. Run tests:
-```bash
-npm test
-```
+## Testing Details
+- **Main Test Case**:
+  - File: `src/tests/DiscountService.test.ts`
+  - Objective: Verify `calculateCartDiscounts` produces `finalPrice = 301.32` for a cart with:
+    - Item: PUMA T-shirt, price 2000, quantity 1
+    - Discounts: Brand (40%), Category (10%), Voucher (SUPER69, 69%), Bank (ICICI, 10%)
+  - Expected `appliedDiscounts`:
+    ```json
+    {
+      "Brand Discount - PUMA (40%)": 800,
+      "Category Discount - T-shirts (10%)": 120,
+      "Voucher Discount - SUPER69 (69%)": 745.2,
+      "Bank Card Discount - ICICI (10%)": 33.48
+    }
+    ```
+- **Initial Issue**:
+  - Test failed with `finalPrice = 279` due to:
+    - Category discount: 200 (expected 120)
+    - Voucher discount: 690 (expected 745.2)
+    - Bank discount: 31 (expected 33.48)
+- **Fixes Applied**:
+  - Updated `DiscountService.ts` to fix `currentPrice` propagation across discount strategies.
+  - Corrected `CategoryDiscountStrategy.ts` to calculate discount on post-brand price (1200 → 120).
+  - Fixed braces syntax error in `VoucherDiscountStrategy.ts`.
+  - Resolved type error (`Decimal` vs. `number`) by updating `discountPercentage` to `Decimal` in interfaces.
+  - Set `Decimal` precision to 10 for consistent calculations.
+  - Enhanced logging to debug `totalAmount` and `currentPrice` updates.
+
 
 ## Usage Example
 
