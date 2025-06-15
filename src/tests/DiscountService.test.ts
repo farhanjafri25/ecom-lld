@@ -1,6 +1,7 @@
+import { Decimal } from 'decimal.js';
 import { DiscountService } from '../services/DiscountService';
 import { cartItems, customer, discounts, paymentInfo } from './fakeData';
-import { describe, beforeEach } from '@jest/globals';
+import { describe, beforeEach, it, expect } from '@jest/globals';
 
 describe('DiscountService', () => {
   let discountService: DiscountService;
@@ -17,22 +18,29 @@ describe('DiscountService', () => {
         paymentInfo
       );
 
-      // Original price: 2000
-      // Brand discount (40%): 800
-      // Category discount (10%): 120
-      // Bank discount (10%): 108
-      // Final price should be: 972
+      // Calculations:
+      // Original price (currentPrice): 2000
+      // Brand discount (40% on 2000): 800
+      // Price after brand: 1200
+      // Category discount (10% on 1200): 120
+      // Price after category: 1080
+      // Voucher discount (69% on 1080): 745.2
+      // Price after voucher: 334.8
+      // Bank discount (10% on 334.8): 33.48
+      // Final price: 301.32
 
       expect(result.originalPrice).toBe(2000);
-      expect(result.finalPrice).toBe(972);
+      expect(result.finalPrice).toBeCloseTo(301.32, 2);
       expect(result.appliedDiscounts).toEqual({
-        'Min 40% off on PUMA': 800,
-        'Extra 10% off on T-shirts': 120,
-        '10% instant discount on ICICI Bank cards': 108
+        'Brand Discount - PUMA (40%)': new Decimal(800),
+        'Category Discount - T-shirts (10%)': new Decimal(120),
+        'Voucher Discount - SUPER69 (69%)': new Decimal(745.2),
+        'Bank Card Discount - ICICI (10%)': new Decimal(33.48),
       });
-      expect(result.message).toContain('Min 40% off on PUMA');
-      expect(result.message).toContain('Extra 10% off on T-shirts');
-      expect(result.message).toContain('10% instant discount on ICICI Bank cards');
+      expect(result.message).toContain('Brand Discount - PUMA (40%)');
+      expect(result.message).toContain('Category Discount - T-shirts (10%)');
+      expect(result.message).toContain('Voucher Discount - SUPER69 (69%)');
+      expect(result.message).toContain('Bank Card Discount - ICICI (10%)');
     });
   });
 
@@ -55,4 +63,4 @@ describe('DiscountService', () => {
       expect(isValid).toBe(false);
     });
   });
-}); 
+});

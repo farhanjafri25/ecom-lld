@@ -1,29 +1,20 @@
+
 import { Decimal } from 'decimal.js';
-import { BrandDiscountConfig, BrandValidator, CartItem, CustomerProfile, DiscountStrategy } from '../models/interface';
+import { BrandDiscountConfig, BrandValidator, CartItem, CustomerProfile, DiscountStrategy, PaymentInfo } from '../models/interface';
 
-
-/**
- * Default validator for brand discounts
- */
 class DefaultBrandValidator implements BrandValidator {
   validate(
     items: CartItem[],
     customer: CustomerProfile,
     config: BrandDiscountConfig
   ): boolean {
-    // Check if any item matches the brand
     const hasBrandItems = items.some(item => item.product.brand.toLowerCase() === config.brand.toLowerCase());
-
-    // Check customer tier if specified
     if (config.customerTiers && customer.tier && !config.customerTiers.includes(customer.tier)) {
       return false;
     }
-
-    // Check validUntil if specified
     if (config.validUntil && config.validUntil < new Date()) {
       return false;
     }
-
     return hasBrandItems;
   }
 }
@@ -32,7 +23,7 @@ export class BrandDiscountStrategy implements DiscountStrategy {
   private readonly config: BrandDiscountConfig;
   private readonly validator: BrandValidator;
   private readonly PERCENTAGE_DIVISOR = new Decimal(100);
-  private onDiscountApplied?: (discount: Decimal, name: string) => void; // Hook for logging/auditing
+  private onDiscountApplied?: (discount: Decimal, name: string) => void;
 
   constructor(
     config: BrandDiscountConfig,
@@ -48,21 +39,21 @@ export class BrandDiscountStrategy implements DiscountStrategy {
     if (config.minimumCartAmount && config.minimumCartAmount.lessThan(0)) {
       throw new Error('Invalid minimum cart amount');
     }
-    this.config = {
-      ...config,
-      discountPercentage: Number(config.discountPercentage),
-    };
+    this.config = { ...config, discountPercentage: Number(config.discountPercentage) };
     this.validator = validator;
     this.onDiscountApplied = onDiscountApplied;
   }
 
-  async calculateDiscount(items: CartItem[], customer: CustomerProfile):Promise <Decimal> {
+  async calculateDiscount(
+    items: CartItem[],
+    customer: CustomerProfile,
+    paymentInfo?: PaymentInfo
+  ): Promise<Decimal> {
     if (!items.length || !this.validate(items, customer)) {
       console.debug(`No discount applied: Invalid conditions for brand ${this.config.brand}`);
       return new Decimal(0);
     }
 
-    // Single pass to filter and calculate total
     const totalAmount = items.reduce((acc, item) => {
       if (
         item.product.brand.toLowerCase() === this.config.brand.toLowerCase() &&
@@ -73,7 +64,6 @@ export class BrandDiscountStrategy implements DiscountStrategy {
       return acc;
     }, new Decimal(0));
 
-    // Check minimum cart amount
     if (this.config.minimumCartAmount && totalAmount.lessThan(this.config.minimumCartAmount)) {
       console.debug(`No discount applied: Cart total ${totalAmount} below minimum ${this.config.minimumCartAmount}`);
       return new Decimal(0);
@@ -81,7 +71,6 @@ export class BrandDiscountStrategy implements DiscountStrategy {
 
     const discount = totalAmount.times(this.config.discountPercentage).div(this.PERCENTAGE_DIVISOR);
 
-    // Trigger callback if provided
     if (this.onDiscountApplied) {
       this.onDiscountApplied(discount, this.getDiscountName());
     }
@@ -93,13 +82,15 @@ export class BrandDiscountStrategy implements DiscountStrategy {
     return `Brand Discount - ${this.config.brand} (${this.config.discountPercentage}%)`;
   }
 
-
-  async validate(items: CartItem[], customer: CustomerProfile):Promise <boolean> {
+  async validate(
+    items: CartItem[],
+    customer: CustomerProfile,
+    paymentInfo?: PaymentInfo
+  ): Promise<boolean> {
     return this.validator.validate(items, customer, this.config);
   }
 
-
   getPriority(): number {
-    return 1; // Brand discounts apply first, per assignment
+    return 1; // Brand discounts apply first
   }
 }

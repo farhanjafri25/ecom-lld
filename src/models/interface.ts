@@ -11,8 +11,8 @@ export interface Product {
   brand: string;
   brandTier: BrandTier;
   category: string;
-  basePrice: number;
-  currentPrice: number; // After brand/category discount
+  basePrice: Decimal;
+  currentPrice: Decimal; // After brand/category discount
 }
 
 export interface CartItem {
@@ -30,7 +30,7 @@ export interface PaymentInfo {
 export interface DiscountedPrice {
   originalPrice: number;
   finalPrice: number;
-  appliedDiscounts: Record<string, number>; // discount_name -> amount
+  appliedDiscounts: Record<string, Decimal>; // discount_name -> amount
   message: string;
 }
 
@@ -57,9 +57,10 @@ export interface Discount {
 } 
 
 export interface DiscountStrategy {
-  calculateDiscount(items: CartItem[], customer: CustomerProfile): Promise<Decimal>;
+  calculateDiscount(items: CartItem[], customer: CustomerProfile,  paymentInfo?: PaymentInfo): Promise<Decimal>;
   getDiscountName(): string;
-  validate(items: CartItem[], customer: CustomerProfile): Promise<boolean>;
+  validate(items: CartItem[], customer: CustomerProfile,  paymentInfo?: PaymentInfo): Promise<boolean>;
+  getPriority(): number 
 }
 
 export interface PaymentValidator {
@@ -114,26 +115,28 @@ export interface CategoryValidator {
   ): boolean;
 }
 
-// Configuration interface for voucher discount
+
 export interface VoucherDiscountConfig {
   code: string;
-  discountPercentage: number;
-  minimumCartAmount?: Decimal; 
+  discountPercentage: Decimal;
+  minimumCartAmount?: Decimal;
+  maxDiscountCap?: Decimal;
   excludedBrands?: string[];
-  excludedCategories?: string[]; 
-  customerTiers?: string[]; 
-  validUntil?: Date; 
-  maxDiscountCap?: Decimal; 
+  excludedCategories?: string[];
 }
 
-/**
- * Validator interface for modular voucher validation
- */
 export interface VoucherValidator {
   validate(
-    code: string,
     items: CartItem[],
     customer: CustomerProfile,
     config: VoucherDiscountConfig
   ): Promise<boolean>;
+}
+
+// StrategyConfig interface (for reference, ideally in DiscountService.ts)
+export interface StrategyConfig {
+  type: 'brand' | 'category' | 'voucher' | 'bank';
+  config: any;
+  validator?: any;
+  onDiscountApplied?: (discount: Decimal, name: string) => void;
 }
