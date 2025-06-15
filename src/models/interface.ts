@@ -70,7 +70,7 @@ export interface PaymentValidator {
 // Configuration interface for flexibility
 export interface BankCardDiscountConfig {
   bankName: string;
-  discountPercentage: number;
+  discountPercentage: Decimal;
   minimumCartAmount?: Decimal;
   eligibleCategories?: string[]; 
 }
@@ -78,7 +78,7 @@ export interface BankCardDiscountConfig {
 // Configuration interface for brand discount
 export interface BrandDiscountConfig {
   brand: string;
-  discountPercentage: number;
+  discountPercentage: Decimal;
   minimumCartAmount?: Decimal; 
   eligibleCategories?: string[]; 
   customerTiers?: string[];
