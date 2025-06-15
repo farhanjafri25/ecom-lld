@@ -1,12 +1,22 @@
-import { CartItem, CustomerProfile, Discount, DiscountedPrice, PaymentInfo } from '../models/interface';
+import { BankCardDiscountStrategy } from '../discount-strategies/BankCardDiscountStrategy';
+import { BrandDiscountStrategy } from '../discount-strategies/BrandDiscountStrategy';
+import { CategoryDiscountStrategy } from '../discount-strategies/CategoryDiscountStrategy';
+import { VoucherDiscountStrategy } from '../discount-strategies/VoucherDiscountStrategy';
+import { CartItem, CustomerProfile, Discount, DiscountedPrice, DiscountStrategy, PaymentInfo } from '../models/interface';
+import { Decimal } from 'decimal.js';
 
 export class DiscountService {
-  private discounts: Discount[];
+ 
+//   private discounts: Discount[]; Not needed as strategies are used instead
+  private readonly brandAndCategoryStrategies: DiscountStrategy[] = [];
+  private readonly voucherStrategies: DiscountStrategy[] = [];
+  private readonly bankCardStrategies: DiscountStrategy[] = [];
 
-  constructor(discounts: Discount[]) {
-    this.discounts = discounts;
+
+  constructor() {
   }
 
+  //Apply the strategies to the cart items and return the discounted price
   async calculateCartDiscounts(
     cartItems: CartItem[],
     customer: CustomerProfile,
@@ -14,111 +24,66 @@ export class DiscountService {
   ): Promise<DiscountedPrice> {
     let originalPrice = this.calculateOriginalPrice(cartItems);
     let finalPrice = originalPrice;
-    const appliedDiscounts: Record<string, number> = {};
+    const appliedDiscounts = new Map<string, number>();
     const messages: string[] = [];
 
-    // Apply brand and category discounts first
-    for (const item of cartItems) {
-      const brandDiscount = this.findBrandDiscount(item.product.brand);
-      const categoryDiscount = this.findCategoryDiscount(item.product.category);
+    const strategiesToProcess = [
+        ...this.brandAndCategoryStrategies,
+        ...this.voucherStrategies,
+        ...(paymentInfo ? this.bankCardStrategies : [])
+      ];
 
-      if (brandDiscount) {
-        const discountAmount = this.calculateDiscountAmount(
-          item.product.currentPrice * item.quantity,
-          brandDiscount.value
-        );
-        finalPrice -= discountAmount;
-        appliedDiscounts[brandDiscount.name] = discountAmount;
-        messages.push(`${brandDiscount.name} applied`);
+      for (const strategy of strategiesToProcess) {
+        if (await strategy.validate(cartItems, customer)) {
+          const discount = await strategy.calculateDiscount(cartItems);
+          if (discount.greaterThan(0)) {
+            finalPrice = finalPrice.minus(discount);
+            appliedDiscounts.set(strategy.getDiscountName(), discount.toNumber());
+            messages.push(`Applied ${strategy.getDiscountName()}`);
+          }
+        }
       }
-
-      if (categoryDiscount) {
-        const discountAmount = this.calculateDiscountAmount(
-          item.product.currentPrice * item.quantity,
-          categoryDiscount.value
-        );
-        finalPrice -= discountAmount;
-        appliedDiscounts[categoryDiscount.name] = discountAmount;
-        messages.push(`${categoryDiscount.name} applied`);
-      }
-    }
-
-    // Apply bank offer if applicable
-    if (paymentInfo?.bankName) {
-      const bankDiscount = this.findBankDiscount(paymentInfo.bankName);
-      if (bankDiscount) {
-        const discountAmount = this.calculateDiscountAmount(finalPrice, bankDiscount.value);
-        finalPrice -= discountAmount;
-        appliedDiscounts[bankDiscount.name] = discountAmount;
-        messages.push(`${bankDiscount.name} applied`);
-      }
-    }
-
+    
     return {
-      originalPrice,
-      finalPrice,
-      appliedDiscounts,
+      originalPrice: originalPrice.toNumber(),
+      finalPrice: finalPrice.toNumber(),
+      appliedDiscounts: Object.fromEntries(appliedDiscounts),
       message: messages.join(', ')
     };
   }
 
+  //Validate the discount code
   async validateDiscountCode(
     code: string,
     cartItems: CartItem[],
     customer: CustomerProfile
   ): Promise<boolean> {
-    const voucher = this.discounts.find(d => d.type === 'VOUCHER' && d.id === code);
-    
-    if (!voucher || !voucher.isActive) {
-      return false;
-    }
-
-    // Check if any product is excluded
-    const hasExcludedBrand = cartItems.some(item => 
-      voucher.conditions?.brand && item.product.brand === voucher.conditions.brand
-    );
-
-    if (hasExcludedBrand) {
-      return false;
-    }
-
-    // Check minimum purchase if specified
-    if (voucher.conditions?.minPurchase) {
-      const totalAmount = this.calculateOriginalPrice(cartItems);
-      if (totalAmount < voucher.conditions.minPurchase) {
+    const voucherStrategy = this.voucherStrategies.find(
+        strategy => strategy.getDiscountName().includes(code)
+      );
+  
+      if (!voucherStrategy) {
         return false;
       }
+  
+      return voucherStrategy.validate(cartItems, customer);
+  }
+
+  //Add a new discount strategy
+  addDiscountStrategy(strategy: DiscountStrategy): void {
+    if (strategy instanceof BrandDiscountStrategy || strategy instanceof CategoryDiscountStrategy) {
+      this.brandAndCategoryStrategies.push(strategy);
+    } else if (strategy instanceof VoucherDiscountStrategy) {
+      this.voucherStrategies.push(strategy);
+    } else if (strategy instanceof BankCardDiscountStrategy) {
+      this.bankCardStrategies.push(strategy);
     }
-
-    return true;
   }
 
-  private calculateOriginalPrice(cartItems: CartItem[]): number {
-    return cartItems.reduce(
-      (total, item) => total + item.product.currentPrice * item.quantity,
-      0
-    );
+  private calculateOriginalPrice(cartItems: CartItem[]): Decimal {
+    return cartItems.reduce((acc, item) => {
+      return acc.plus(new Decimal(item.product.basePrice).times(item.quantity));
+    }, new Decimal(0));
   }
 
-  private calculateDiscountAmount(price: number, discountPercentage: number): number {
-    return (price * discountPercentage) / 100;
-  }
-
-  private findBrandDiscount(brand: string): Discount | undefined {
-    return this.discounts.find(
-      d => d.type === 'BRAND' && d.conditions?.brand === brand && d.isActive
-    );
-  }
-
-  private findCategoryDiscount(category: string): Discount | undefined {
-    return this.discounts.find(
-      d => d.type === 'CATEGORY' && d.conditions?.category === category && d.isActive
-    );
-  }
-
-  private findBankDiscount(bankName: string): Discount | undefined {
-    return this.discounts.find(
-      d => d.type === 'BANK' && d.conditions?.bankName === bankName && d.isActive
-    );
-  }
 } 
