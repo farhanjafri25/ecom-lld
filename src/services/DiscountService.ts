@@ -1,4 +1,4 @@
-import { CartItem, CustomerProfile, Discount, DiscountedPrice, PaymentInfo } from '../models/types';
+import { CartItem, CustomerProfile, Discount, DiscountedPrice, PaymentInfo } from '../models/interface';
 
 export class DiscountService {
   private discounts: Discount[];
